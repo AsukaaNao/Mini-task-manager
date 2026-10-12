@@ -154,8 +154,8 @@ export default function App() {
 
       <footer className="w-full border-t border-neutral-200 py-4 px-4 sm:px-8 text-center text-xs text-neutral-400 mt-auto">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Task Manager • Multi-User JSON Storage & Chronological Audit</span>
-          <span className="font-mono text-neutral-500">to_do → pending → in_progress → done</span>
+          {/* <span>Task Manager • Multi-User JSON Storage & Chronological Audit</span>
+          <span className="font-mono text-neutral-500">to_do → pending → in_progress → done</span> */}
         </div>
       </footer>
     </div>
