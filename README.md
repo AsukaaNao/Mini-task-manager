@@ -87,6 +87,6 @@ I would replace JSON file persistence with a relational database such as Postgre
 
 ### If AI was used, what did it help with and how was the result validated?
 
-AI was used to generate the initial codebase, while I refined specific features and made adjustments based on the project requirements. I validated the implementation by running different test cases to ensure the features behaved as expected and met the required functionality.
+AI was used to generate the initial codebase, while I refined specific features and made adjustments based on the project requirements. I validated the implementation by running different test cases to ensure the features behaved as expected and met the required functionality. On top of that I also specify the structure of the data and structure of the project to ensure readibility and easier on debugging and fixing bugs
 
 
