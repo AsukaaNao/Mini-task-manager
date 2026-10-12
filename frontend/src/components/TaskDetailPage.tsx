@@ -179,8 +179,8 @@ export const TaskDetailPage: React.FC<TaskDetailPageProps> = ({
 
           <div className="flex items-center gap-1.5">
             <span>Created by:</span>
-            <span className="font-mono bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-200">
-              {task.user_id || 'anonymous'}
+            <span className="font-medium text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+              {task.user_name || task.user_id || 'Alice'}
             </span>
           </div>
         </div>

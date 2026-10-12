@@ -20,10 +20,10 @@ type ViewState =
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([
-    { id: 'alice', name: 'Alice' },
-    { id: 'bob', name: 'Bob' },
-    { id: 'charlie', name: 'Charlie' },
-    { id: 'anonymous', name: 'Anonymous' },
+    { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+    { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+    { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+    { id: 'user-4', name: 'David', email: 'david@example.com' },
   ]);
   const [currentUser, setActiveUser] = useState<string>(getCurrentUser());
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -34,7 +34,9 @@ export default function App() {
   const fetchUsers = useCallback(async () => {
     try {
       const userList = await tasksApi.getUsers();
-      setUsers(userList);
+      if (Array.isArray(userList) && userList.length > 0) {
+        setUsers(userList);
+      }
     } catch {
       // Keep defaults if network fails
     }
@@ -46,7 +48,7 @@ export default function App() {
     setError(null);
     try {
       const activeTasks = await tasksApi.getTasks();
-      setTasks(activeTasks.filter((t) => !t.is_deleted));
+      setTasks(activeTasks.filter((t) => !t.deleted_at && !t.is_deleted));
     } catch (err: any) {
       setError(err?.message || 'Failed to fetch tasks from the server.');
     } finally {
@@ -59,16 +61,16 @@ export default function App() {
     fetchTasks();
   }, [fetchUsers, fetchTasks]);
 
-  const handleUserChange = (userId: string) => {
-    setCurrentUser(userId);
-    setActiveUser(userId);
+  const handleUserChange = (userName: string) => {
+    setCurrentUser(userName);
+    setActiveUser(userName);
   };
 
   const handleAddUser = async (name: string) => {
     try {
       const newUser = await tasksApi.createUser(name);
       setUsers((prev) => [...prev, newUser]);
-      handleUserChange(newUser.id);
+      handleUserChange(newUser.name);
     } catch (err: any) {
       alert(err?.message || 'Failed to create new user.');
     }

@@ -11,21 +11,21 @@ import {
 const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined ? import.meta.env.VITE_API_BASE_URL : '/api';
 export const API_BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 
-// Active user session state
-let currentUserId =
+// Active user session state (storing user name, e.g. "Alice")
+let currentUserName =
   typeof window !== 'undefined'
-    ? localStorage.getItem('task_manager_user') || 'alice'
-    : 'alice';
+    ? localStorage.getItem('task_manager_user_name') || 'Alice'
+    : 'Alice';
 
-export function setCurrentUser(userId: string): void {
-  currentUserId = userId;
+export function setCurrentUser(userName: string): void {
+  currentUserName = userName;
   if (typeof window !== 'undefined') {
-    localStorage.setItem('task_manager_user', userId);
+    localStorage.setItem('task_manager_user_name', userName);
   }
 }
 
 export function getCurrentUser(): string {
-  return currentUserId;
+  return currentUserName;
 }
 
 export class ApiError extends Error {
@@ -97,7 +97,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'X-User-Id': currentUserId,
+    'X-User-Name': currentUserName,
+    'X-User-Id': currentUserName,
     ...(options.headers as Record<string, string>),
   };
 
@@ -135,17 +136,17 @@ export const tasksApi = {
       const data = await request<any>('/users', { method: 'GET' });
       if (Array.isArray(data)) return data;
       return [
-        { id: 'alice', name: 'Alice' },
-        { id: 'bob', name: 'Bob' },
-        { id: 'charlie', name: 'Charlie' },
-        { id: 'anonymous', name: 'Anonymous' },
+        { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        { id: 'user-4', name: 'David', email: 'david@example.com' },
       ];
     } catch {
       return [
-        { id: 'alice', name: 'Alice' },
-        { id: 'bob', name: 'Bob' },
-        { id: 'charlie', name: 'Charlie' },
-        { id: 'anonymous', name: 'Anonymous' },
+        { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+        { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+        { id: 'user-3', name: 'Charlie', email: 'charlie@example.com' },
+        { id: 'user-4', name: 'David', email: 'david@example.com' },
       ];
     }
   },
@@ -163,8 +164,8 @@ export const tasksApi = {
   /**
    * GET /tasks — Retrieve all active tasks (optional user filter)
    */
-  async getTasks(userId?: string): Promise<Task[]> {
-    const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+  async getTasks(userName?: string): Promise<Task[]> {
+    const query = userName && userName !== 'all' ? `?user_name=${encodeURIComponent(userName)}` : '';
     const data = await request<any>(`/tasks${query}`, { method: 'GET' });
     if (Array.isArray(data)) {
       return data;
@@ -193,14 +194,15 @@ export const tasksApi = {
   },
 
   /**
-   * POST /tasks — Create a new task
+   * POST /tasks — Create a new task (uses user_name)
    */
   async createTask(payload: CreateTaskPayload): Promise<Task> {
     const data = await request<any>('/tasks', {
       method: 'POST',
       body: JSON.stringify({
         ...payload,
-        actor: payload.actor || currentUserId,
+        user_name: payload.user_name || currentUserName,
+        actor: payload.actor || currentUserName,
       }),
     });
     if (data && data.task) {
@@ -231,7 +233,7 @@ export const tasksApi = {
       method: 'PUT',
       body: JSON.stringify({
         status: payload.status,
-        actor: payload.actor || currentUserId,
+        actor: payload.actor || currentUserName,
       }),
     });
     if (data && data.task) {

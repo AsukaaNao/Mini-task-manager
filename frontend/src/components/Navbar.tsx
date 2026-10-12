@@ -7,7 +7,7 @@ interface NavbarProps {
   activeCount: number;
   users: User[];
   currentUser: string;
-  onUserChange: (userId: string) => void;
+  onUserChange: (userName: string) => void;
   onAddUser: (name: string) => void;
 }
 
@@ -67,8 +67,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   title="Switch active user"
                 >
                   {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.id})
+                    <option key={user.id} value={user.name}>
+                      {user.name}
                     </option>
                   ))}
                   <option value="__new__">+ Add user...</option>

@@ -46,7 +46,8 @@ export const TaskListPage: React.FC<TaskListPageProps> = ({
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchStatus = selectedStatusFilter === 'all' || task.status === selectedStatusFilter;
-      const matchUser = selectedUserFilter === 'all' || (task.user_id || 'anonymous') === selectedUserFilter;
+      const taskUser = task.user_name || task.user_id || 'Alice';
+      const matchUser = selectedUserFilter === 'all' || taskUser.toLowerCase() === selectedUserFilter.toLowerCase();
       return matchStatus && matchUser;
     });
   }, [tasks, selectedStatusFilter, selectedUserFilter]);
@@ -123,9 +124,9 @@ export const TaskListPage: React.FC<TaskListPageProps> = ({
             >
               <option value="all">All Users ({tasks.length})</option>
               {users.map((u) => {
-                const count = tasks.filter((t) => (t.user_id || 'anonymous') === u.id).length;
+                const count = tasks.filter((t) => (t.user_name || t.user_id || '').toLowerCase() === u.name.toLowerCase()).length;
                 return (
-                  <option key={u.id} value={u.id}>
+                  <option key={u.id} value={u.name}>
                     {u.name} ({count})
                   </option>
                 );
@@ -243,8 +244,8 @@ export const TaskListPage: React.FC<TaskListPageProps> = ({
 
                 {/* User / Actor */}
                 <div className="col-span-2 sm:col-span-2">
-                  <span className="text-xs font-mono text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
-                    {task.user_id || 'anonymous'}
+                  <span className="text-xs font-medium text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+                    {task.user_name || task.user_id || 'Alice'}
                   </span>
                 </div>
 

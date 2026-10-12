@@ -19,16 +19,19 @@ export const NEXT_STATUS_MAP: Record<TaskStatus, TaskStatus | null> = {
 export interface User {
   id: string;
   name: string;
+  email?: string;
 }
 
 export interface Task {
   id: string;
+  user_name: string;
   user_id?: string;
   title: string;
   description: string;
   status: TaskStatus;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
   is_deleted?: boolean;
 }
 
@@ -44,6 +47,7 @@ export interface AuditLog {
 export interface CreateTaskPayload {
   title: string;
   description?: string;
+  user_name?: string;
   actor?: string;
 }
 

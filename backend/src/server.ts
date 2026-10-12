@@ -22,7 +22,8 @@ export interface User {
 
 export interface Task {
   id: string;
-  user_id: string;
+  user_name: string;
+  user_id?: string;
   title: string;
   description: string;
   status: TaskStatus;
@@ -175,19 +176,49 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use(cors());
   app.use(express.json());
 
-  // Helper: Extract actor identity
+  // Helper: Resolve a user name given an ID, name, or fallback
+  const resolveUserName = (input?: string): string => {
+    if (!input || typeof input !== 'string' || !input.trim()) {
+      return store.data.users[0]?.name || 'Alice';
+    }
+    const clean = input.trim();
+    // Check if input matches a user's id (e.g., 'user-1' -> 'Alice')
+    const byId = store.data.users.find((u) => u.id === clean);
+    if (byId) return byId.name;
+    // Check if input matches a user's name (case-insensitive)
+    const byName = store.data.users.find(
+      (u) => u.name.toLowerCase() === clean.toLowerCase()
+    );
+    if (byName) return byName.name;
+    return clean;
+  };
+
+  // Helper: Extract actor identity (returns user name, e.g. "Alice")
   const getActor = (req: Request): string => {
+    const headerUserName = req.headers['x-user-name'];
+    if (typeof headerUserName === 'string' && headerUserName.trim()) {
+      return resolveUserName(headerUserName.trim());
+    }
     const headerUser = req.headers['x-user-id'];
     if (typeof headerUser === 'string' && headerUser.trim()) {
-      return headerUser.trim();
+      return resolveUserName(headerUser.trim());
+    }
+    if (typeof req.query.user_name === 'string' && req.query.user_name.trim()) {
+      return resolveUserName(req.query.user_name.trim());
+    }
+    if (typeof req.query.user === 'string' && req.query.user.trim()) {
+      return resolveUserName(req.query.user.trim());
     }
     if (typeof req.query.user_id === 'string' && req.query.user_id.trim()) {
-      return req.query.user_id.trim();
+      return resolveUserName(req.query.user_id.trim());
+    }
+    if (req.body && typeof req.body.user_name === 'string' && req.body.user_name.trim()) {
+      return resolveUserName(req.body.user_name.trim());
     }
     if (req.body && typeof req.body.actor === 'string' && req.body.actor.trim()) {
-      return req.body.actor.trim();
+      return resolveUserName(req.body.actor.trim());
     }
-    return 'anonymous';
+    return store.data.users[0]?.name || 'Alice';
   };
 
   // Router for all Task & User endpoints
@@ -217,7 +248,10 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
       }
 
       const trimmedName = name.trim();
-      const trimmedEmail = typeof email === 'string' && email.trim() ? email.trim() : `${trimmedName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+      const trimmedEmail =
+        typeof email === 'string' && email.trim()
+          ? email.trim()
+          : `${trimmedName.toLowerCase().replace(/\s+/g, '.')}@example.com`;
 
       const newUser: User = {
         id: `user-${randomUUID().slice(0, 8)}`,
@@ -236,12 +270,15 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   });
 
   /**
-   * GET /users/:id — Get user by ID
+   * GET /users/:id — Get user by ID or Name
    */
   router.get('/users/:id', (req: Request, res: Response) => {
-    const user = store.data.users.find((u) => u.id === req.params.id && !u.deleted_at);
+    const target = req.params.id;
+    const user = store.data.users.find(
+      (u) => (!u.deleted_at && (u.id === target || u.name.toLowerCase() === target.toLowerCase()))
+    );
     if (!user) {
-      return res.status(404).json({ error: 'USER_NOT_FOUND', message: `User with id '${req.params.id}' not found` });
+      return res.status(404).json({ error: 'USER_NOT_FOUND', message: `User '${target}' not found` });
     }
     res.status(200).json(user);
   });
@@ -251,9 +288,12 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
    */
   router.patch('/users/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = store.data.users.find((u) => u.id === req.params.id && !u.deleted_at);
+      const target = req.params.id;
+      const user = store.data.users.find(
+        (u) => (!u.deleted_at && (u.id === target || u.name.toLowerCase() === target.toLowerCase()))
+      );
       if (!user) {
-        return res.status(404).json({ error: 'USER_NOT_FOUND', message: `User with id '${req.params.id}' not found` });
+        return res.status(404).json({ error: 'USER_NOT_FOUND', message: `User '${target}' not found` });
       }
 
       const { name, email } = req.body;
@@ -271,14 +311,14 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
       }
 
       await store.save((data) => {
-        const target = data.users.find((u) => u.id === req.params.id);
-        if (target) {
-          if (name !== undefined) target.name = name.trim();
-          if (email !== undefined) target.email = email.trim();
+        const u = data.users.find((item) => item.id === user.id);
+        if (u) {
+          if (name !== undefined) u.name = name.trim();
+          if (email !== undefined) u.email = email.trim();
         }
       });
 
-      const updated = store.data.users.find((u) => u.id === req.params.id);
+      const updated = store.data.users.find((u) => u.id === user.id);
       res.status(200).json(updated);
     } catch (err) {
       next(err);
@@ -287,20 +327,23 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
 
   /**
    * DELETE /users/:id — Delete user
-   * Soft-deletes user or prevents deletion if user has active tasks, protecting tasks & audit history
+   * Soft-deletes user, protecting tasks & audit history
    */
   router.delete('/users/:id', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = store.data.users.find((u) => u.id === req.params.id && !u.deleted_at);
+      const target = req.params.id;
+      const user = store.data.users.find(
+        (u) => (!u.deleted_at && (u.id === target || u.name.toLowerCase() === target.toLowerCase()))
+      );
       if (!user) {
-        return res.status(404).json({ error: 'USER_NOT_FOUND', message: `User with id '${req.params.id}' not found` });
+        return res.status(404).json({ error: 'USER_NOT_FOUND', message: `User '${target}' not found` });
       }
 
       const now = new Date().toISOString();
       await store.save((data) => {
-        const target = data.users.find((u) => u.id === req.params.id);
-        if (target) {
-          target.deleted_at = now;
+        const u = data.users.find((item) => item.id === user.id);
+        if (u) {
+          u.deleted_at = now;
         }
       });
 
@@ -318,21 +361,33 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
    * GET /tasks — List all active tasks (not soft-deleted, newest first)
    */
   router.get('/tasks', (req: Request, res: Response) => {
-    const userIdFilter = typeof req.query.user_id === 'string' ? req.query.user_id : undefined;
+    const userFilter =
+      (typeof req.query.user_name === 'string' && req.query.user_name.trim()) ||
+      (typeof req.query.user === 'string' && req.query.user.trim()) ||
+      (typeof req.query.user_id === 'string' && req.query.user_id.trim()) ||
+      undefined;
 
     const activeTasks = store.data.tasks
-      .filter((t) => t.deleted_at === null && (!userIdFilter || t.user_id === userIdFilter))
+      .filter((t) => {
+        if (t.deleted_at !== null) return false;
+        if (!userFilter) return true;
+        const target = userFilter.toLowerCase();
+        return (
+          t.user_name?.toLowerCase() === target ||
+          t.user_id?.toLowerCase() === target
+        );
+      })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     res.status(200).json(activeTasks);
   });
 
   /**
-   * POST /tasks — Create a task (starts with to_do, server-assigned ID & timestamps)
+   * POST /tasks — Create a task (stores user_name, starts with to_do, server-assigned ID & timestamps)
    */
   router.post('/tasks', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { title, description, user_id } = req.body;
+      const { title, description, user_name, user, user_id } = req.body;
 
       if (!title || typeof title !== 'string' || !title.trim()) {
         return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Task title is required and cannot be empty' });
@@ -344,11 +399,16 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
       }
 
       const now = new Date().toISOString();
-      const assignedUserId = user_id || getActor(req);
+      const rawUser = user_name || user || user_id || getActor(req);
+      const assignedUserName = resolveUserName(rawUser);
+      const matchedUser = store.data.users.find(
+        (u) => u.name.toLowerCase() === assignedUserName.toLowerCase()
+      );
 
       const newTask: Task = {
         id: `task-${randomUUID().slice(0, 8)}`,
-        user_id: assignedUserId,
+        user_name: assignedUserName,
+        user_id: matchedUser ? matchedUser.id : assignedUserName,
         title: title.trim(),
         description: typeof description === 'string' ? description.trim() : '',
         status: 'to_do',
@@ -404,7 +464,9 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
       }
 
       const titleChanged = title !== undefined && title.trim() !== task.title;
-      const descChanged = description !== undefined && (typeof description === 'string' ? description.trim() : '') !== task.description;
+      const descChanged =
+        description !== undefined &&
+        (typeof description === 'string' ? description.trim() : '') !== task.description;
 
       if (!titleChanged && !descChanged) {
         return res.status(200).json(task);
@@ -416,7 +478,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         const target = data.tasks.find((t) => t.id === req.params.id);
         if (target) {
           if (title !== undefined) target.title = title.trim();
-          if (description !== undefined) target.description = typeof description === 'string' ? description.trim() : '';
+          if (description !== undefined)
+            target.description = typeof description === 'string' ? description.trim() : '';
           target.updated_at = now;
         }
       });
@@ -552,7 +615,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     res.status(200).json(logs);
   });
 
-  // Mount at root / as requested in REST API Guide AND /api for existing frontend compatibility
+  // Mount at root / as requested in REST API Guide AND /api for frontend compatibility
   app.use('/', router);
   app.use('/api', router);
 
