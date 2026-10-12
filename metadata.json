@@ -1,0 +1,7 @@
+{
+  "name": "Mini Task Manager",
+  "description": "A clean, responsive task manager with strict status transitions and chronological audit logs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
